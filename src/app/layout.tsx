@@ -1,14 +1,16 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Vision Hub - منصة الإبداع البصري',
-  description: 'منصة متكاملة للمصورين والمصممين - تحليل AI، توليد تصاميم، تدريب، واستعادة الصور',
+  title: 'Vision Hub | منصة بسام الإبداعية',
+  description: 'منصة بسام الإبداعية. خدمات تصميم، تحسين صور، هوية بصرية، وتدريب بشراكة بين الذكاء الاصطناعي والعنصر البشري المحترف.',
+  keywords: 'تصميم, تصوير, هوية بصرية, ذكاء اصطناعي, تدريب, بسام, Vision Hub',
+  authors: [{ name: 'Bassam Creative Ecosystem' }],
+  openGraph: {
+    title: 'Vision Hub | منصة بسام الإبداعية',
+    description: 'حيث يلتقي الإبداع البشري بالذكاء الاصطناعي',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
@@ -18,12 +20,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={inter.className}>
-        <Navbar />
-        <main className="min-h-screen">
-          {children}
-        </main>
-        <Footer />
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="#0A0A0A" />
+      </head>
+      <body className="font-arabic">
+        {children}
       </body>
     </html>
   )
