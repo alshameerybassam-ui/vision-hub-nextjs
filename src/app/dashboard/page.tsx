@@ -4,24 +4,17 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard,
-  ShoppingBag,
-  Users,
-  DollarSign,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  ArrowLeft,
-  Bell,
-  Settings,
+  LayoutDashboard, ShoppingBag, Users, DollarSign, TrendingUp,
+  Clock, CheckCircle, AlertCircle, ArrowLeft, Bell, Settings,
+  Aperture, LogOut
 } from 'lucide-react'
+import Link from 'next/link'
 
 const stats = [
-  { label: 'إجمالي الطلبات', value: '156', icon: ShoppingBag, color: 'bg-vh-accent/20 text-vh-accent' },
-  { label: 'المستخدمين', value: '89', icon: Users, color: 'bg-emerald-500/20 text-emerald-400' },
-  { label: 'الإيرادات', value: '12,450 ر.س', icon: DollarSign, color: 'bg-amber-500/20 text-amber-400' },
-  { label: 'معدل النمو', value: '+23%', icon: TrendingUp, color: 'bg-rose-500/20 text-rose-400' },
+  { label: 'إجمالي الطلبات', value: '156', icon: ShoppingBag, color: 'bg-accent/20 text-accent' },
+  { label: 'المستخدمين', value: '89', icon: Users, color: 'bg-green-500/20 text-green-400' },
+  { label: 'الإيرادات', value: '12,450 ر.س', icon: DollarSign, color: 'bg-yellow-500/20 text-yellow-400' },
+  { label: 'معدل النمو', value: '+23%', icon: TrendingUp, color: 'bg-blue/20 text-blue-400' },
 ]
 
 const recentOrders = [
@@ -32,7 +25,7 @@ const recentOrders = [
   { id: '#ORD-005', service: 'FrameAI', customer: 'فهد أحمد', status: 'human_review', date: '2026-05-26', amount: '200 ر.س' },
 ]
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
+const statusConfig = {
   completed: { label: 'مكتمل', color: 'bg-green-500/20 text-green-400', icon: CheckCircle },
   ai_processing: { label: 'معالجة AI', color: 'bg-blue-500/20 text-blue-400', icon: Clock },
   human_review: { label: 'مراجعة يدوية', color: 'bg-purple-500/20 text-purple-400', icon: AlertCircle },
@@ -63,10 +56,15 @@ export default function DashboardPage() {
     getProfile()
   }, [])
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/'
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center pt-16">
-        <div className="animate-spin w-8 h-8 border-2 border-vh-accent border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center pt-20">
+        <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -74,8 +72,10 @@ export default function DashboardPage() {
   const isAdmin = profile?.role === 'admin'
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen pt-24 pb-12 px-4 relative">
+      <div className="grid-pattern absolute inset-0 z-0" />
+
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -95,6 +95,9 @@ export default function DashboardPage() {
             </button>
             <button className="p-2 glass rounded-lg hover:bg-white/10 transition-colors">
               <Settings className="w-5 h-5 text-gray-400" />
+            </button>
+            <button onClick={handleLogout} className="p-2 glass rounded-lg hover:bg-red-500/20 transition-colors">
+              <LogOut className="w-5 h-5 text-red-400" />
             </button>
           </div>
         </motion.div>
@@ -129,7 +132,7 @@ export default function DashboardPage() {
         >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">أحدث الطلبيات</h2>
-            <button className="text-vh-accent text-sm hover:text-vh-accent-hover transition-colors flex items-center gap-1">
+            <button className="text-accent text-sm hover:text-accent-hover transition-colors flex items-center gap-1">
               عرض الكل
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -149,7 +152,7 @@ export default function DashboardPage() {
               </thead>
               <tbody>
                 {recentOrders.map((order) => {
-                  const status = statusConfig[order.status]
+                  const status = statusConfig[order.status as keyof typeof statusConfig]
                   return (
                     <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="py-4 pr-4 text-white font-medium">{order.id}</td>
@@ -179,13 +182,13 @@ export default function DashboardPage() {
           className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4"
         >
           {[
-            { title: 'إدارة الخدمات', desc: 'تعديل وإضافة خدمات جديدة', href: '#' },
-            { title: 'إدارة المستخدمين', desc: 'عرض وإدارة حسابات المستخدمين', href: '#' },
-            { title: 'التقارير', desc: 'عرض التقارير المالية والإحصائيات', href: '#' },
+            { title: 'إدارة الخدمات', desc: 'تعديل وإضافة خدمات جديدة' },
+            { title: 'إدارة المستخدمين', desc: 'عرض وإدارة حسابات المستخدمين' },
+            { title: 'التقارير', desc: 'عرض التقارير المالية والإحصائيات' },
           ].map((action, i) => (
             <div
               key={i}
-              className="glass rounded-xl p-6 hover:border-vh-accent/30 transition-colors cursor-pointer"
+              className="glass rounded-xl p-6 hover:border-accent/30 transition-colors cursor-pointer"
             >
               <h3 className="text-white font-semibold mb-1">{action.title}</h3>
               <p className="text-gray-400 text-sm">{action.desc}</p>
@@ -199,7 +202,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="mt-8 glass rounded-2xl p-6 border-vh-accent/30"
+            className="mt-8 glass rounded-2xl p-6 border-accent/30"
           >
             <h2 className="text-xl font-bold text-white mb-4">🔧 أدوات المشرف</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

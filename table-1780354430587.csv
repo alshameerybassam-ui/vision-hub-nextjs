@@ -1,0 +1,4 @@
+﻿الملف,الوصف
+`src/lib/ai-services.ts`,إعدادات جميع خدمات AI
+`supabase/functions/`,Edge Functions للمعالجة
+`AI_SETUP_GUIDE.md`,دليل الإعداد الكامل

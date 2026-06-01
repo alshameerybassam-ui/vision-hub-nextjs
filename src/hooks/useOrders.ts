@@ -34,7 +34,6 @@ export function useOrders() {
 
     fetchOrders()
 
-    // Subscribe to realtime changes
     const subscription = supabase
       .channel('orders')
       .on('postgres_changes', 

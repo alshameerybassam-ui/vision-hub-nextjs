@@ -23,7 +23,6 @@ export function useAuth() {
         if (data) {
           setProfile(data as Profile)
         } else {
-          // Create profile if doesn't exist
           const { data: newProfile } = await supabase
             .from('profiles')
             .insert({
@@ -48,7 +47,6 @@ export function useAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        // Refetch profile on auth change
         getProfile()
       } else {
         setProfile(null)

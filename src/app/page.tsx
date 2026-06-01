@@ -407,7 +407,7 @@ function ServicesSection() {
                 ))}
               </ul>
 
-              <a href="#" className="inline-flex items-center gap-2 text-accent font-semibold hover:gap-4 transition-all">
+              <a href="/revive" className="inline-flex items-center gap-2 text-accent font-semibold hover:gap-4 transition-all">
                 <span>جرب الآن</span>
                 <ArrowLeft className="w-4 h-4" />
               </a>
