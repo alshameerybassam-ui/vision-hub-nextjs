@@ -1,16 +1,15 @@
 -- ============================================
--- Vision Hub Database Schema
--- Run this in Supabase SQL Editor
+-- Vision Hub Schema (Safe Add/Sync)
+-- Non-destructive sync
 -- ============================================
 
--- Enable UUID extension
+-- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================
--- 1. Users (handled by Supabase Auth)
--- Profiles table for extra user data
--- ============================================
-CREATE TABLE IF NOT EXISTS profiles (
+-- =================================================
+-- 1) profiles
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     full_name TEXT,
     phone TEXT,
@@ -21,12 +20,13 @@ CREATE TABLE IF NOT EXISTS profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Trigger to create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO public.profiles (id, full_name, role)
-    VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', 'client');
+    VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', 'client')
+    ON CONFLICT (id) DO NOTHING;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -36,10 +36,10 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ============================================
--- 2. Orders
--- ============================================
-CREATE TABLE IF NOT EXISTS orders (
+-- =================================================
+-- 2) orders
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.orders (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     service_type TEXT NOT NULL CHECK (service_type IN ('revive', 'frameai', 'lens_coach', 'academy')),
@@ -54,12 +54,12 @@ CREATE TABLE IF NOT EXISTS orders (
     completed_at TIMESTAMPTZ
 );
 
--- ============================================
--- 3. Images
--- ============================================
-CREATE TABLE IF NOT EXISTS images (
+-- =================================================
+-- 3) images
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.images (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     original_url TEXT NOT NULL,
     ai_processed_url TEXT,
@@ -71,40 +71,41 @@ CREATE TABLE IF NOT EXISTS images (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
--- ============================================
--- 4. Revive Requests
--- ============================================
-CREATE TABLE IF NOT EXISTS revive_requests (
+-- =================================================
+-- 4) revive_requests
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.revive_requests (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    enhancements JSONB DEFAULT '{}',
+    order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+    enhancements JSONB DEFAULT '{}'::jsonb,
     ai_result_url TEXT,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'ai_done', 'human_done')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 5. Brand Designs (FrameAI)
--- ============================================
-CREATE TABLE IF NOT EXISTS brand_designs (
+-- =================================================
+-- 5) brand_designs
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.brand_designs (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     questionnaire JSONB NOT NULL,
-    ai_designs JSONB DEFAULT '[]',
-    selected_designs JSONB DEFAULT '[]',
+    ai_designs JSONB DEFAULT '[]'::jsonb,
+    selected_designs JSONB DEFAULT '[]'::jsonb,
     final_design_url TEXT,
-    status TEXT DEFAULT 'questionnaire' CHECK (status IN ('questionnaire', 'ai_generating', 'admin_review', 'client_selection', 'finalized')),
+    status TEXT DEFAULT 'questionnaire'
+      CHECK (status IN ('questionnaire', 'ai_generating', 'admin_review', 'client_selection', 'finalized')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 6. Lens Analysis
--- ============================================
-CREATE TABLE IF NOT EXISTS lens_analysis (
+-- =================================================
+-- 6) lens_analysis
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.lens_analysis (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    image_id UUID REFERENCES images(id) ON DELETE CASCADE,
+    image_id UUID REFERENCES public.images(id) ON DELETE CASCADE,
     ai_score DECIMAL(3,2),
     ai_feedback JSONB,
     human_analysis TEXT,
@@ -113,10 +114,10 @@ CREATE TABLE IF NOT EXISTS lens_analysis (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 7. Courses
--- ============================================
-CREATE TABLE IF NOT EXISTS courses (
+-- =================================================
+-- 7) courses
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.courses (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     title_ar TEXT NOT NULL,
     title_en TEXT NOT NULL,
@@ -135,24 +136,24 @@ CREATE TABLE IF NOT EXISTS courses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 8. User Progress
--- ============================================
-CREATE TABLE IF NOT EXISTS user_progress (
+-- =================================================
+-- 8) user_progress
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.user_progress (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
     completion_pct DECIMAL(5,2) DEFAULT 0,
-    quiz_scores JSONB DEFAULT '[]',
+    quiz_scores JSONB DEFAULT '[]'::jsonb,
     certificate_url TEXT,
     completed_at TIMESTAMPTZ,
     UNIQUE(user_id, course_id)
 );
 
--- ============================================
--- 9. Notifications
--- ============================================
-CREATE TABLE IF NOT EXISTS notifications (
+-- =================================================
+-- 9) notifications
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('email', 'whatsapp', 'push')),
@@ -162,10 +163,10 @@ CREATE TABLE IF NOT EXISTS notifications (
     sent_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- 10. SEO Meta
--- ============================================
-CREATE TABLE IF NOT EXISTS seo_meta (
+-- =================================================
+-- 10) seo_meta
+-- =================================================
+CREATE TABLE IF NOT EXISTS public.seo_meta (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     page_path TEXT UNIQUE NOT NULL,
     meta_title_ar TEXT,
@@ -176,97 +177,125 @@ CREATE TABLE IF NOT EXISTS seo_meta (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================
--- Row Level Security (RLS)
--- ============================================
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE images ENABLE ROW LEVEL SECURITY;
-ALTER TABLE revive_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE brand_designs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lens_analysis ENABLE ROW LEVEL SECURITY;
-ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+-- =================================================
+-- Enable RLS
+-- =================================================
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.revive_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.brand_designs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lens_analysis ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seo_meta ENABLE ROW LEVEL SECURITY;
 
--- Profiles policies
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
+-- =================================================
+-- Policies (مطابقة لفكرتك الأصلية)
+-- =================================================
+
+-- profiles
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 CREATE POLICY "Public profiles are viewable by everyone"
-    ON profiles FOR SELECT USING (true);
+  ON public.profiles FOR SELECT
+  USING (true);
 
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
-    ON profiles FOR UPDATE USING (auth.uid() = id);
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
 
--- Orders policies
-DROP POLICY IF EXISTS "Users can view own orders" ON orders;
+-- orders
+DROP POLICY IF EXISTS "Users can view own orders" ON public.orders;
 CREATE POLICY "Users can view own orders"
-    ON orders FOR SELECT USING (auth.uid() = user_id);
+  ON public.orders FOR SELECT
+  USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can create orders" ON orders;
+DROP POLICY IF EXISTS "Users can create orders" ON public.orders;
 CREATE POLICY "Users can create orders"
-    ON orders FOR INSERT WITH CHECK (auth.uid() = user_id);
+  ON public.orders FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Admin can view all orders" ON orders;
+DROP POLICY IF EXISTS "Admin can view all orders" ON public.orders;
 CREATE POLICY "Admin can view all orders"
-    ON orders FOR SELECT USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-    );
+  ON public.orders FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid() AND p.role = 'admin'
+    )
+  );
 
--- Images policies
-DROP POLICY IF EXISTS "Users can view own images" ON images;
+-- images
+DROP POLICY IF EXISTS "Users can view own images" ON public.images;
 CREATE POLICY "Users can view own images"
-    ON images FOR SELECT USING (auth.uid() = user_id);
+  ON public.images FOR SELECT
+  USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can upload images" ON images;
+DROP POLICY IF EXISTS "Users can upload images" ON public.images;
 CREATE POLICY "Users can upload images"
-    ON images FOR INSERT WITH CHECK (auth.uid() = user_id);
+  ON public.images FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
 
--- Courses policies
-DROP POLICY IF EXISTS "Anyone can view published courses" ON courses;
+-- courses
+DROP POLICY IF EXISTS "Anyone can view published courses" ON public.courses;
 CREATE POLICY "Anyone can view published courses"
-    ON courses FOR SELECT USING (is_published = true);
+  ON public.courses FOR SELECT
+  USING (is_published = true);
 
--- Notifications policies
-DROP POLICY IF EXISTS "Users can view own notifications" ON notifications;
+-- notifications
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
 CREATE POLICY "Users can view own notifications"
-    ON notifications FOR SELECT USING (auth.uid() = user_id);
+  ON public.notifications FOR SELECT
+  USING (auth.uid() = user_id);
 
--- ============================================
--- Enable Realtime
--- ============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+-- =================================================
+-- Realtime publication (best-effort)
+-- =================================================
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  EXCEPTION WHEN others THEN NULL;
+  END;
 
--- ============================================
--- Indexes for performance
--- ============================================
-CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_images_order ON images(order_id);
-CREATE INDEX IF NOT EXISTS idx_images_delete ON images(auto_delete_date);
-CREATE INDEX IF NOT EXISTS idx_lens_user ON lens_analysis(user_id);
-CREATE INDEX IF NOT EXISTS idx_courses_level ON courses(level);
-CREATE INDEX IF NOT EXISTS idx_courses_slug ON courses(slug);
-CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+END $$;
 
--- ============================================
--- Auto-delete expired images function
--- ============================================
-CREATE OR REPLACE FUNCTION delete_expired_images()
+-- =================================================
+-- Indexes
+-- =================================================
+CREATE INDEX IF NOT EXISTS idx_orders_user ON public.orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
+CREATE INDEX IF NOT EXISTS idx_images_order ON public.images(order_id);
+CREATE INDEX IF NOT EXISTS idx_images_delete ON public.images(auto_delete_date);
+CREATE INDEX IF NOT EXISTS idx_lens_user ON public.lens_analysis(user_id);
+CREATE INDEX IF NOT EXISTS idx_courses_level ON public.courses(level);
+CREATE INDEX IF NOT EXISTS idx_courses_slug ON public.courses(slug);
+CREATE INDEX IF NOT EXISTS idx_progress_user ON public.user_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id, is_read);
+
+-- =================================================
+-- Function: delete_expired_images
+-- =================================================
+CREATE OR REPLACE FUNCTION public.delete_expired_images()
 RETURNS void AS $$
 BEGIN
-    UPDATE images 
-    SET is_deleted = true 
-    WHERE auto_delete_date < NOW() AND is_deleted = false;
+  UPDATE public.images
+  SET is_deleted = true
+  WHERE auto_delete_date < NOW() AND is_deleted = false;
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================
--- Insert sample courses
--- ============================================
-INSERT INTO courses (title_ar, title_en, slug, description_ar, description_en, level, duration_minutes, is_free, is_published) VALUES
+-- =================================================
+-- Sample data (upsert)
+-- =================================================
+INSERT INTO public.courses (title_ar, title_en, slug, description_ar, description_en, level, duration_minutes, is_free, is_published)
+VALUES
   ('أساسيات التصوير الفوتوغرافي', 'Photography Basics', 'photography-basics', 'تعلم أساسيات الكاميرا، التعريض، والتكوين', 'Learn camera basics, exposure, and composition', 'basic', 240, true, true),
   ('التصوير الاحترافي', 'Professional Photography', 'professional-photography', 'تقنيات متقدمة للتصوير الاحترافي', 'Advanced photography techniques', 'advanced', 360, false, true),
   ('التصميم الجرافيكي', 'Graphic Design', 'graphic-design', 'تعلم Photoshop وIllustrator من الصفر', 'Learn Photoshop and Illustrator from scratch', 'basic', 480, false, true),
@@ -275,13 +304,23 @@ INSERT INTO courses (title_ar, title_en, slug, description_ar, description_en, l
   ('الذكاء الاصطناعي في التصوير', 'AI in Photography', 'ai-photography', 'استخدام AI لتحسين وتوليد الصور', 'Using AI to enhance and generate images', 'basic', 180, true, true)
 ON CONFLICT (slug) DO NOTHING;
 
--- ============================================
--- Insert sample SEO meta
--- ============================================
-INSERT INTO seo_meta (page_path, meta_title_ar, meta_title_en, meta_desc_ar, meta_desc_en) VALUES
-  ('/', 'Vision Hub - منصة الإبداع البصري', 'Vision Hub - Visual Creativity Platform', 'منصة متكاملة للمصورين والمصممين', 'Integrated platform for photographers and designers'),
-  ('/revive', 'Revive - استعادة الصور', 'Revive - Photo Restoration', 'استعد صورك القديمة بجودة عالية', 'Restore your old photos in high quality'),
-  ('/frameai', 'FrameAI - توليد التصاميم', 'FrameAI - Design Generation', 'ولد تصاميم فريدة بالذكاء الاصطناعي', 'Generate unique designs with AI'),
-  ('/lens-coach', 'Lens Coach - تحليل الصور', 'Lens Coach - Photo Analysis', 'تحليل AI احترافي لصورك', 'Professional AI analysis for your photos'),
-  ('/academy', 'AI Academy - التدريب', 'AI Academy - Training', 'تعلم فنون التصوير والتصميم', 'Learn photography and design arts')
+INSERT INTO public.seo_meta (page_path, meta_title_ar, meta_title_en, meta_desc_ar, meta_desc_en, og_image)
+VALUES
+  ('/', 'Vision Hub - منصة الإبداع البصري', 'Vision Hub - Visual Creativity Platform', 'منصة متكاملة للمصورين والمصممين', 'Integrated platform for photographers and designers', NULL),
+  ('/revive', 'Revive - استعادة الصور', 'Revive - Photo Restoration', 'استعد صورك القديمة بجودة عالية', 'Restore your old photos in high quality', NULL),
+  ('/frameai', 'FrameAI - توليد التصاميم', 'FrameAI - Design Generation', 'ولد تصاميم فريدة بالذكاء الاصطناعي', 'Generate unique designs with AI', NULL),
+  ('/lens-coach', 'Lens Coach - تحليل الصور', 'Lens Coach - Photo Analysis', 'تحليل AI احترافي لصورك', 'Professional AI analysis for your photos', NULL),
+  ('/academy', 'AI Academy - التدريب', 'AI Academy - Training', 'تعلم فنون التصوير والتصميم', 'Learn photography and design arts', NULL)
 ON CONFLICT (page_path) DO NOTHING;
+
+-- =================================================
+-- Grants (optional but helps Data API)
+-- =================================================
+GRANT SELECT ON public.courses TO anon, authenticated;
+GRANT SELECT ON public.profiles TO anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.images TO authenticated;
+
+-- مثل سكربتك: لديك SELECT policy فقط لـ notifications
+GRANT SELECT ON public.notifications TO authenticated;
